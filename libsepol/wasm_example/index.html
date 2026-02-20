@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>libsepol WASM Browser Example</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        #output { background: #f0f0f0; padding: 1em; border-radius: 4px; white-space: pre-wrap; }
+        .input-group { margin-bottom: 1em; }
+        label { display: block; margin-bottom: 0.5em; }
+        input { width: 100%; padding: 0.5em; box-sizing: border-box; }
+        button { padding: 0.5em 1em; cursor: pointer; }
+        .valid { color: green; font-weight: bold; }
+        .invalid { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>libsepol WASM Browser Example</h1>
+    <p>This example demonstrates calling <code>sepol_check_context</code> from libsepol in the browser.</p>
+
+    <div class="input-group">
+        <label for="contextInput">Security Context:</label>
+        <input type="text" id="contextInput" value="user_u:role_r:type_t:s0">
+    </div>
+    <button id="checkButton">Check Context</button>
+
+    <h3>Output:</h3>
+    <div id="output">Loading libsepol...</div>
+
+    <script src="../src/libsepol_browser.js"></script>
+    <script src="example.js"></script>
+</body>
+</html>

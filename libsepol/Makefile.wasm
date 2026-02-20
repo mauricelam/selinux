@@ -1,0 +1,49 @@
+# Emscripten build rules for libsepol
+
+EMCC = emcc
+EMAR = emar
+EMRANLIB = emranlib
+
+# Default flags for Emscripten
+# We define HAVE_REALLOCARRAY because we provide it in wasm_compat.c,
+# and we want to avoid the static inline definition in private.h that conflicts
+# with the non-static declaration in Emscripten's stdlib.h.
+WASM_CFLAGS = -O2 -Wall -DHAVE_REALLOCARRAY -D_GNU_SOURCE
+WASM_LDFLAGS = -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="libsepol" -s ALLOW_MEMORY_GROWTH=1
+
+# Browser-specific flags
+BROWSER_LDFLAGS = $(WASM_LDFLAGS) \
+                  -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_malloc", "_free"]' \
+                  -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8"]'
+
+.PHONY: all clean browser
+
+all:
+	# Build the static library
+	$(MAKE) -C src -f Makefile \
+		CC=$(EMCC) \
+		AR=$(EMAR) \
+		RANLIB=$(EMRANLIB) \
+		CFLAGS="$(WASM_CFLAGS)" \
+		LD_SONAME_FLAGS="" \
+		DISABLE_SHARED=y
+
+	# Build the compatibility file and add it to the library
+	$(EMCC) $(WASM_CFLAGS) -Iinclude -Isrc -c src/wasm_compat.c -o src/wasm_compat.o
+	$(EMAR) rcs src/libsepol.a src/wasm_compat.o
+	$(EMRANLIB) src/libsepol.a
+
+	# Build the utilities to .js/.wasm for Node.js (default)
+	for f in $$(ls utils/*.c); do \
+		base=$$(basename $$f .c); \
+		$(EMCC) $(WASM_CFLAGS) -Iinclude $$f src/libsepol.a -o utils/$$base.js $(WASM_LDFLAGS); \
+	done
+
+browser: all
+	# Build a unified JS/WASM for browser use
+	$(EMCC) $(WASM_CFLAGS) -Iinclude src/wasm_compat.o src/libsepol.a -o src/libsepol_browser.js $(BROWSER_LDFLAGS)
+
+clean:
+	$(MAKE) -C src -f Makefile clean
+	$(MAKE) -C utils -f Makefile clean
+	rm -f src/wasm_compat.o src/libsepol_browser.js src/libsepol_browser.wasm utils/*.js utils/*.wasm
