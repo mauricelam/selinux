@@ -12,13 +12,17 @@ WASM_CFLAGS = -O2 -Wall -DHAVE_REALLOCARRAY -D_GNU_SOURCE
 WASM_LDFLAGS = -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="libsepol" -s ALLOW_MEMORY_GROWTH=1
 
 # Browser-specific flags
+# Export common CIL and policydb functions for analysis
+# These are the underscore-prefixed C function names.
 BROWSER_LDFLAGS = $(WASM_LDFLAGS) \
-                  -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_malloc", "_free"]' \
-                  -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8"]'
+                  -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_sepol_compile_cil_to_binary", "_sepol_get_cil_ast", "_cil_db_init", "_cil_db_destroy", "_cil_add_file", "_cil_compile", "_cil_build_policydb", "_sepol_policydb_create", "_sepol_policydb_free", "_malloc", "_free"]' \
+                  -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8", "getValue", "setValue", "HEAPU8"]'
 
 .PHONY: all clean browser
 
-all:
+all: browser
+
+libsepol_static:
 	# Build the static library
 	$(MAKE) -C src -f Makefile \
 		CC=$(EMCC) \
@@ -29,19 +33,14 @@ all:
 		DISABLE_SHARED=y
 
 	# Build the compatibility file and add it to the library
-	$(EMCC) $(WASM_CFLAGS) -Iinclude -Isrc -c src/wasm_compat.c -o src/wasm_compat.o
+	$(EMCC) $(WASM_CFLAGS) -Iinclude -Isrc -Icil/include -c src/wasm_compat.c -o src/wasm_compat.o
 	$(EMAR) rcs src/libsepol.a src/wasm_compat.o
 	$(EMRANLIB) src/libsepol.a
 
-	# Build the utilities to .js/.wasm for Node.js (default)
-	for f in $$(ls utils/*.c); do \
-		base=$$(basename $$f .c); \
-		$(EMCC) $(WASM_CFLAGS) -Iinclude $$f src/libsepol.a -o utils/$$base.js $(WASM_LDFLAGS); \
-	done
-
-browser: all
+browser: libsepol_static
 	# Build a unified JS/WASM for browser use
-	$(EMCC) $(WASM_CFLAGS) -Iinclude src/wasm_compat.o src/libsepol.a -o src/libsepol_browser.js $(BROWSER_LDFLAGS)
+	# Note: wasm_compat.o is already in libsepol.a
+	$(EMCC) $(WASM_CFLAGS) -Iinclude -Icil/include src/libsepol.a -o src/libsepol_browser.js $(BROWSER_LDFLAGS)
 
 clean:
 	$(MAKE) -C src -f Makefile clean
