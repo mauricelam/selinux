@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   tf_testsuite:
     runs-on: ubuntu-latest
+    if: github.repository == 'SELinuxProject/selinux'
     strategy:
       fail-fast: false
       matrix:
