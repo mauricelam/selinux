@@ -1,0 +1,19 @@
+{
+  "name": "selinux-wasm",
+  "version": "3.10.0",
+  "description": "SELinux libsepol compiled to WebAssembly",
+  "main": "dist/libsepol_browser.js",
+  "scripts": {
+    "build": "make -C libsepol -f Makefile.wasm dist",
+    "prepublishOnly": "npm run build"
+  },
+  "author": "SELinux Project",
+  "license": "LGPL-2.1",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SELinuxProject/selinux.git"
+  }
+}
