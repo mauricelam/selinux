@@ -18,9 +18,14 @@ BROWSER_LDFLAGS = $(WASM_LDFLAGS) \
                   -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_sepol_compile_cil_to_binary", "_sepol_get_cil_ast", "_cil_db_init", "_cil_db_destroy", "_cil_add_file", "_cil_compile", "_cil_build_policydb", "_sepol_policydb_create", "_sepol_policydb_free", "_malloc", "_free"]' \
                   -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8", "getValue", "setValue", "HEAPU8"]'
 
-.PHONY: all clean browser
+.PHONY: all clean browser dist
 
 all: browser
+
+dist: browser
+	mkdir -p ../dist
+	cp src/libsepol_browser.js ../dist/
+	cp src/libsepol_browser.wasm ../dist/
 
 libsepol_static:
 	# Build the static library
