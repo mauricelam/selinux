@@ -1,8 +1,14 @@
+#ifdef __EMSCRIPTEN__
+
 #include <stdlib.h>
 #include <errno.h>
 #include <stdio.h>
 #include <sepol/policydb.h>
 #include <cil/cil.h>
+
+/* Forward declarations to satisfy -Wmissing-prototypes */
+int sepol_compile_cil_to_binary(const char *cil_data, size_t cil_size, char **out_data, size_t *out_size);
+int sepol_get_cil_ast(const char *cil_data, size_t cil_size, char **out_ast, size_t *out_size);
 
 /* Emscripten's stdlib.h declares reallocarray but the library doesn't always
    provide it. We provide a non-static version here that matches the
@@ -124,3 +130,5 @@ exit:
 	}
 	return rc;
 }
+
+#endif /* __EMSCRIPTEN__ */
