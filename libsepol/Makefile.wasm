@@ -15,8 +15,8 @@ WASM_LDFLAGS = -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="libsepol" -s ALLOW_MEMO
 # Export common CIL and policydb functions for analysis
 # These are the underscore-prefixed C function names.
 BROWSER_LDFLAGS = $(WASM_LDFLAGS) \
-                  -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_sepol_compile_cil_to_binary", "_sepol_get_cil_ast", "_cil_db_init", "_cil_db_destroy", "_cil_add_file", "_cil_compile", "_cil_build_policydb", "_sepol_policydb_create", "_sepol_policydb_free", "_malloc", "_free"]' \
-                  -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8", "getValue", "setValue", "HEAPU8"]'
+                  -s EXPORTED_FUNCTIONS='["_sepol_check_context", "_sepol_compile_cil_to_binary", "_sepol_get_cil_ast", "_cil_db_init", "_cil_db_destroy", "_cil_add_file", "_cil_compile", "_cil_build_policydb", "_sepol_policydb_create", "_sepol_policydb_free", "_malloc", "_free", "_api_load_policy", "_api_free_policy", "_api_get_version", "_api_get_symbol_count", "_api_get_symbol_name", "_api_get_rule_count", "_api_get_rules", "_api_is_type_attribute", "_api_get_boolean_state", "_api_get_permissions", "_api_free_string"]' \
+                  -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "stringToUTF8", "allocateUTF8", "getValue", "setValue", "HEAPU8", "HEAPU32", "UTF8ToString"]'
 
 .PHONY: all clean browser dist
 
@@ -37,9 +37,10 @@ libsepol_static:
 		LD_SONAME_FLAGS="" \
 		DISABLE_SHARED=y
 
-	# Build the compatibility file and add it to the library
+	# Build the compatibility and bridge files and add them to the library
 	$(EMCC) $(WASM_CFLAGS) -Iinclude -Isrc -Icil/include -c src/wasm_compat.c -o src/wasm_compat.o
-	$(EMAR) rcs src/libsepol.a src/wasm_compat.o
+	$(EMCC) $(WASM_CFLAGS) -Iinclude -Isrc -Icil/include -c src/policy_api.c -o src/policy_api.o
+	$(EMAR) rcs src/libsepol.a src/wasm_compat.o src/policy_api.o
 	$(EMRANLIB) src/libsepol.a
 
 browser: libsepol_static
@@ -50,4 +51,4 @@ browser: libsepol_static
 clean:
 	$(MAKE) -C src -f Makefile clean
 	$(MAKE) -C utils -f Makefile clean
-	rm -f src/wasm_compat.o src/libsepol_browser.js src/libsepol_browser.wasm utils/*.js utils/*.wasm
+	rm -f src/wasm_compat.o src/policy_api.o src/libsepol_browser.js src/libsepol_browser.wasm utils/*.js utils/*.wasm
