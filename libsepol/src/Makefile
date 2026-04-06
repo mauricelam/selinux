@@ -17,8 +17,8 @@ TARGET=libsepol.so
 LIBPC=libsepol.pc
 LIBMAP=libsepol.map
 LIBSO=$(TARGET).$(LIBVERSION)
-OBJS= $(patsubst %.c,%.o,$(sort $(wildcard *.c)))
-LOBJS= $(patsubst %.c,%.lo,$(sort $(wildcard *.c)))
+OBJS= $(patsubst %.c,%.o,$(sort $(filter-out wasm_compat.c,$(wildcard *.c))))
+LOBJS= $(patsubst %.c,%.lo,$(sort $(filter-out wasm_compat.c,$(wildcard *.c))))
 CFLAGS ?= -Werror -Wall -W -Wundef -Wshadow -Wmissing-format-attribute -O2 -fno-semantic-interposition
 
 override CFLAGS += -I. -I../include -D_GNU_SOURCE

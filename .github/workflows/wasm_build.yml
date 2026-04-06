@@ -1,0 +1,47 @@
+name: WASM Build CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flex bison
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Build WASM artifacts
+        run: npm run build
+
+      - name: Verify artifacts
+        run: |
+          test -f dist/libsepol_browser.js
+          test -f dist/libsepol_browser.wasm
+          echo "Artifacts generated successfully."
+
+      - name: Smoke test WASM module
+        run: |
+          node -e '
+          const libsepol = require("./dist/libsepol_browser.js");
+          libsepol().then(instance => {
+            console.log("WASM loaded successfully");
+            process.exit(0);
+          }).catch(err => {
+            console.error("Failed to load WASM:", err);
+            process.exit(1);
+          });
+          '
