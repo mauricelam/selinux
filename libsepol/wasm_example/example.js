@@ -115,6 +115,124 @@ function getCilAst(cilSource) {
     }
 }
 
+// Inspect a loaded binary policy using api_* bridge functions
+function analyzeBinaryPolicy(binaryPolicy) {
+    if (!libsepolModule) throw new Error('libsepol is not loaded');
+
+    const dataPtr = libsepolModule._malloc(binaryPolicy.length);
+    libsepolModule.HEAPU8.set(binaryPolicy, dataPtr);
+
+    const handle = libsepolModule.ccall('api_load_policy', 'number', ['number', 'number'], [dataPtr, binaryPolicy.length]);
+    if (!handle) {
+        libsepolModule._free(dataPtr);
+        throw new Error('Failed to load binary policy into policydb');
+    }
+
+    try {
+        const version = libsepolModule.ccall('api_get_version', 'number', ['number'], [handle]);
+
+        // Symbol table constants in libsepol
+        const SYM_CLASSES = 1;
+        const SYM_ROLES = 2;
+        const SYM_TYPES = 3;
+        const SYM_USERS = 4;
+        const SYM_BOOLS = 5;
+
+        const classCount = libsepolModule.ccall('api_get_symbol_count', 'number', ['number', 'number'], [handle, SYM_CLASSES]);
+        const roleCount = libsepolModule.ccall('api_get_symbol_count', 'number', ['number', 'number'], [handle, SYM_ROLES]);
+        const typeCount = libsepolModule.ccall('api_get_symbol_count', 'number', ['number', 'number'], [handle, SYM_TYPES]);
+        const userCount = libsepolModule.ccall('api_get_symbol_count', 'number', ['number', 'number'], [handle, SYM_USERS]);
+        const boolCount = libsepolModule.ccall('api_get_symbol_count', 'number', ['number', 'number'], [handle, SYM_BOOLS]);
+
+        let output = `Policy Version: ${version}\n`;
+        output += `Symbol Counts: Classes=${classCount}, Roles=${roleCount}, Types=${typeCount}, Users=${userCount}, Booleans=${boolCount}\n\n`;
+
+        output += `Types & Attributes:\n`;
+        for (let i = 1; i <= typeCount; i++) {
+            const namePtr = libsepolModule.ccall('api_get_symbol_name', 'number', ['number', 'number', 'number'], [handle, SYM_TYPES, i]);
+            const name = namePtr ? libsepolModule.UTF8ToString(namePtr) : 'unknown';
+            const isAttr = libsepolModule.ccall('api_is_type_attribute', 'number', ['number', 'number'], [handle, i]);
+            output += `  - Type [${i}]: ${name} (${isAttr === 1 ? 'Attribute' : 'Type'})\n`;
+        }
+
+        const AVTAB_ALLOWED = 0x0001;
+        const ruleCount = libsepolModule.ccall('api_get_rule_count', 'number', ['number', 'number'], [handle, AVTAB_ALLOWED]);
+        output += `\nAllowed Rules Count: ${ruleCount}\n`;
+
+        return output;
+    } finally {
+        libsepolModule.ccall('api_free_policy', null, ['number'], [handle]);
+        libsepolModule._free(dataPtr);
+    }
+}
+
+// Search rules in a binary policy using api_get_rules and api_get_permissions
+function searchRulesInPolicy(binaryPolicy, query, isRegex) {
+    if (!libsepolModule) throw new Error('libsepol is not loaded');
+
+    const dataPtr = libsepolModule._malloc(binaryPolicy.length);
+    libsepolModule.HEAPU8.set(binaryPolicy, dataPtr);
+
+    const handle = libsepolModule.ccall('api_load_policy', 'number', ['number', 'number'], [dataPtr, binaryPolicy.length]);
+    if (!handle) {
+        libsepolModule._free(dataPtr);
+        throw new Error('Failed to load binary policy');
+    }
+
+    try {
+        const AVTAB_ALLOWED = 0x0001;
+        const maxRules = 100;
+        const rulesBufferPtr = libsepolModule._malloc(maxRules * 16); // rule_info_t is 16 bytes
+
+        const queryPtr = query ? libsepolModule.allocateUTF8(query) : 0;
+
+        const count = libsepolModule.ccall(
+            'api_get_rules',
+            'number',
+            ['number', 'number', 'number', 'number', 'number', 'number'],
+            [handle, rulesBufferPtr, maxRules, queryPtr, isRegex ? 1 : 0, AVTAB_ALLOWED]
+        );
+
+        if (queryPtr) libsepolModule._free(queryPtr);
+
+        let output = `Found ${count} matching AV rule(s):\n`;
+
+        const SYM_CLASSES = 1;
+        const SYM_TYPES = 3;
+
+        for (let i = 0; i < count; i++) {
+            const offset = rulesBufferPtr + i * 16;
+            const src = libsepolModule.getValue(offset, 'i32');
+            const tgt = libsepolModule.getValue(offset + 4, 'i32');
+            const cls = libsepolModule.getValue(offset + 8, 'i32');
+            const data = libsepolModule.getValue(offset + 12, 'i32');
+
+            const srcPtr = libsepolModule.ccall('api_get_symbol_name', 'number', ['number', 'number', 'number'], [handle, SYM_TYPES, src]);
+            const tgtPtr = libsepolModule.ccall('api_get_symbol_name', 'number', ['number', 'number', 'number'], [handle, SYM_TYPES, tgt]);
+            const clsPtr = libsepolModule.ccall('api_get_symbol_name', 'number', ['number', 'number', 'number'], [handle, SYM_CLASSES, cls]);
+
+            const srcName = srcPtr ? libsepolModule.UTF8ToString(srcPtr) : src;
+            const tgtName = tgtPtr ? libsepolModule.UTF8ToString(tgtPtr) : tgt;
+            const clsName = clsPtr ? libsepolModule.UTF8ToString(clsPtr) : cls;
+
+            const permStrPtr = libsepolModule.ccall('api_get_permissions', 'number', ['number', 'number', 'number'], [handle, cls, data]);
+            const permStr = permStrPtr ? libsepolModule.UTF8ToString(permStrPtr) : `0x${data.toString(16)}`;
+
+            if (permStrPtr) {
+                libsepolModule.ccall('api_free_string', null, ['number'], [permStrPtr]);
+            }
+
+            output += `  allow ${srcName} ${tgtName}:${clsName} { ${permStr.trim()} };\n`;
+        }
+
+        libsepolModule._free(rulesBufferPtr);
+        return output;
+    } finally {
+        libsepolModule.ccall('api_free_policy', null, ['number'], [handle]);
+        libsepolModule._free(dataPtr);
+    }
+}
+
 document.getElementById('checkButton').addEventListener('click', () => {
     if (!libsepolModule) {
         alert('libsepol is not yet loaded');
@@ -184,5 +302,44 @@ document.getElementById('astButton').addEventListener('click', () => {
     } catch (e) {
         console.error(e);
         astOutput.innerHTML = `<span class="invalid">FAILURE:</span> ${e.message}`;
+    }
+});
+
+document.getElementById('analyzeButton').addEventListener('click', () => {
+    if (!libsepolModule) {
+        alert('libsepol is not yet loaded');
+        return;
+    }
+
+    const cilInput = document.getElementById('cilInput').value;
+    const apiOutput = document.getElementById('apiOutput');
+
+    try {
+        const binaryPolicy = compileCilToBinary(cilInput);
+        const analysis = analyzeBinaryPolicy(binaryPolicy);
+        apiOutput.innerText = analysis;
+    } catch (e) {
+        console.error(e);
+        apiOutput.innerHTML = `<span class="invalid">FAILURE:</span> ${e.message}`;
+    }
+});
+
+document.getElementById('searchRulesButton').addEventListener('click', () => {
+    if (!libsepolModule) {
+        alert('libsepol is not yet loaded');
+        return;
+    }
+
+    const cilInput = document.getElementById('cilInput').value;
+    const query = document.getElementById('ruleSearchQuery').value;
+    const apiOutput = document.getElementById('apiOutput');
+
+    try {
+        const binaryPolicy = compileCilToBinary(cilInput);
+        const rulesOutput = searchRulesInPolicy(binaryPolicy, query, false);
+        apiOutput.innerText = rulesOutput;
+    } catch (e) {
+        console.error(e);
+        apiOutput.innerHTML = `<span class="invalid">FAILURE:</span> ${e.message}`;
     }
 });
