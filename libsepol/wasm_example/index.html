@@ -5,7 +5,7 @@
     <title>libsepol WASM Browser Example</title>
     <style>
         body { font-family: sans-serif; margin: 2em; max-width: 1000px; margin-left: auto; margin-right: auto; }
-        #output, #cilOutput, #astOutput { background: #f0f0f0; padding: 1em; border-radius: 4px; white-space: pre-wrap; margin-top: 1em; overflow-x: auto; }
+        #output, #cilOutput, #astOutput, #apiOutput { background: #f0f0f0; padding: 1em; border-radius: 4px; white-space: pre-wrap; margin-top: 1em; overflow-x: auto; }
         .input-group { margin-bottom: 1em; }
         label { display: block; margin-bottom: 0.5em; font-weight: bold; }
         input, textarea { width: 100%; padding: 0.5em; box-sizing: border-box; }
@@ -69,6 +69,23 @@
 
         <h3>Resolved AST:</h3>
         <div id="astOutput">AST will appear here after clicking "Get Resolved AST".</div>
+    </div>
+
+    <div class="section">
+        <h2>Binary Policy Analysis & Rule Search</h2>
+        <p>Demonstrates using the <code>api_*</code> bridge functions to inspect symbol tables and search AV rules in a compiled policy.</p>
+        <div class="actions">
+            <button id="analyzeButton">Analyze Compiled Policy</button>
+        </div>
+        <div class="input-group" style="margin-top: 1em;">
+            <label for="ruleSearchQuery">Rule Search Query (plain-text or POSIX regex):</label>
+            <input type="text" id="ruleSearchQuery" value="type_t">
+        </div>
+        <div class="actions">
+            <button id="searchRulesButton">Search AV Rules</button>
+        </div>
+        <h3>Policy Analysis Output:</h3>
+        <div id="apiOutput">Click "Analyze Compiled Policy" or "Search AV Rules" to see output.</div>
     </div>
 
     <script src="../src/libsepol_browser.js"></script>
