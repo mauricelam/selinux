@@ -212,8 +212,6 @@ class policy:
             print("Can not get port types", e)
 
         self.symbols = {}
-        self.symbols["openlog"] = "set_use_kerberos(True)"
-        self.symbols["openlog"] = "set_use_kerb_rcache(True)"
         self.symbols["openlog"] = "set_use_syslog(True)"
         self.symbols["gethostby"] = "set_use_resolve(True)"
         self.symbols["getaddrinfo"] = "set_use_resolve(True)"
@@ -226,8 +224,7 @@ class policy:
         self.symbols["getpwnam"] = "set_use_uid(True)"
         self.symbols["getpwuid"] = "set_use_uid(True)"
         self.symbols["dbus_"] = "set_use_dbus(True)"
-        self.symbols["pam_"] = "set_use_pam(True)"
-        self.symbols["pam_"] = "set_use_audit(True)"
+        self.symbols["pam_"] = "set_use_pam(True);set_use_audit(True)"
         self.symbols["fork"] = "add_process('fork')"
         self.symbols["transition"] = "add_process('transition')"
         self.symbols["sigchld"] = "add_process('sigchld')"
@@ -1095,12 +1092,12 @@ allow %s_t %s_t:%s_socket name_%s;
                 t1 = re.sub("TEMPLATETYPE", self.name, self.files[i][2].fc_sock_file)
             else:
                 t1 = re.sub("TEMPLATETYPE", self.name, self.files[i][2].fc_file)
-            t2 = re.sub("FILENAME", i, t1)
+            t2 = t1.replace("FILENAME", re.escape(i))
             fclist.append(re.sub("FILETYPE", self.files[i][0], t2))
 
         for i in self.dirs.keys():
             t1 = re.sub("TEMPLATETYPE", self.name, self.dirs[i][2].fc_dir)
-            t2 = re.sub("FILENAME", i, t1)
+            t2 = t1.replace("FILENAME", re.escape(i))
             fclist.append(re.sub("FILETYPE", self.dirs[i][0], t2))
 
         if self.type in USERS + [SANDBOX]:
@@ -1111,11 +1108,11 @@ allow %s_t %s_t:%s_socket name_%s;
             raise ValueError(_("You must enter the executable path for your confined process"))
 
         if self.program:
-            t1 = re.sub("EXECUTABLE", self.program, executable.fc_program)
+            t1 = executable.fc_program.replace("EXECUTABLE", re.escape(self.program))
             fclist.append(re.sub("TEMPLATETYPE", self.name, t1))
 
         if self.initscript != "":
-            t1 = re.sub("EXECUTABLE", self.initscript, executable.fc_initscript)
+            t1 = executable.fc_initscript.replace("EXECUTABLE", re.escape(self.initscript))
             fclist.append(re.sub("TEMPLATETYPE", self.name, t1))
 
         fclist.sort()
@@ -1322,6 +1319,9 @@ allow %s_t %s_t:%s_socket name_%s;
         import dnf
 
         with dnf.Base() as base:
+            if base.conf.substitutions.get('releasever') is None:
+                base.conf.substitutions['releasever'] = ''
+
             base.read_all_repos()
             base.fill_sack(load_system_repo=True)
 

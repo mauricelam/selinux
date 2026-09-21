@@ -10,6 +10,7 @@ restorecon \- restore file(s) default SELinux security contexts.
 .RB [ \-p ]
 .RB [ \-v ]
 .RB [ \-i ]
+.RB [ \-j ]
 .RB [ \-F ]
 .RB [ \-U ]
 .RB [ \-W ]
@@ -30,6 +31,7 @@ restorecon \- restore file(s) default SELinux security contexts.
 .RB [ \-p ]
 .RB [ \-v ]
 .RB [ \-i ]
+.RB [ \-j ]
 .RB [ \-F ]
 .RB [ \-U ]
 .RB [ \-W ]
@@ -88,6 +90,10 @@ contains a list of files to be processed. Use
 for
 .BR stdin .
 .TP
+.B \-j
+skip files with multiple hard links to avoid unintentional mislabeling,
+particularly when relabeling user-writable directories.
+.TP
 .B \-F
 Force reset of context to match file_context for customizable files, and the
 default file context, changing the user, role, range portion as well as the type.
@@ -139,6 +145,9 @@ options are mutually exclusive.
 .TP
 .B \-R, \-r
 change files and directories file labels recursively (descend directories).
+Directory cycles are skipped, see the
+.B NOTES
+section for details.
 .br
 .TP
 .B \-v
@@ -177,9 +186,24 @@ from crossing file system boundaries.
 use up to
 .I nthreads
 threads.  Specify 0 to create as many threads as there are available
-CPU cores; 1 to use only a single thread (default); or any positive
-number to use the given number of threads (if possible).
+CPU cores (default); 1 to use only a single thread; or any positive
+number to use the given number of threads (if possible).  This option
+overrides the
+.B RESTORECON_THREADS
+environment variable.
+.SH "ENVIRONMENT"
 .TP
+.B RESTORECON_THREADS
+Sets the default number of threads to use, with the same meaning as the
+.B \-T
+option.  This allows the amount of parallelism to be controlled for
+callers that do not pass
+.B \-T
+themselves, such as package installation scripts.  Setting it to 1
+restores the historic single threaded behaviour.  An invalid value is
+ignored with a warning.  The
+.B \-T
+option takes precedence.
 .SH "ARGUMENTS"
 .IR pathname \ ...
 The pathname for the file(s) to be relabeled.
@@ -234,6 +258,23 @@ and provided the
 .B \-n
 option is NOT set and recursive mode is set, files will be relabeled as
 required with the digests then being updated provided there are no errors.
+.IP "4." 4
+When descending directories (i.e. the
+.B \-R
+or
+.B \-r
+option is set)
+.B restorecon
+detects directory cycles, for example a bind mount of an ancestor directory or
+nested BTRFS subvolumes. A cycle is reported as a warning and the offending
+directory is not descended into, the remaining entries are still relabeled.
+A directory cycle is not counted as a relabeling error, so it does not affect
+the exit status and does not stop the file tree walk. Up to and including
+version 3.11 a directory cycle was instead treated as a fatal
+.B ELOOP
+error, terminating
+.B restorecon
+with a non-zero exit status.
 
 .SH EXAMPLE
 .nf

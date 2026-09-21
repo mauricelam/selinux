@@ -106,9 +106,12 @@ try:
     audit.audit_close(audit.audit_open())
 
     class logger:
+        audit_fd = None
 
         def __init__(self):
-            self.audit_fd = audit.audit_open()
+            if logger.audit_fd is None:
+                logger.audit_fd = audit.audit_open()
+
             self.log_list = []
             self.log_change_list = []
 
@@ -1100,7 +1103,7 @@ class portRecords(semanageRecords):
             low = int(ports[0])
             high = int(ports[1])
 
-        if high > 65535:
+        if low < 1 or low > high or high > 65535:
             raise ValueError(_("Invalid Port"))
 
         (rc, k) = semanage_port_key_create(self.sh, low, high, proto_d)

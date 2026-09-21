@@ -65,19 +65,21 @@
 const char *homedir;
 static int master_fd = -1;
 
-static const char *server_watch_file  = "/etc/selinux/restorecond.conf";
-static const char *user_watch_file  = "/etc/selinux/restorecond_user.conf";
+static const char *server_watch_file = "/etc/selinux/restorecond.conf";
+static const char *user_watch_file = "/etc/selinux/restorecond_user.conf";
 static const char *watch_file;
 struct restore_opts r_opts;
 
 #include <selinux/selinux.h>
 
 int debug_mode = 0;
-int terminate = 0;
+volatile sig_atomic_t terminate = 0;
 int master_wd = -1;
 int run_as_user = 0;
+int foreground_mode = 0;
 
-static void done(void) {
+static void done(void)
+{
 	watch_list_free(master_fd);
 	close(master_fd);
 	utmpwatcher_free();
@@ -94,17 +96,18 @@ static int write_pid_file(void)
 	len = snprintf(val, sizeof(val), "%u\n", getpid());
 	if (len < 0) {
 		syslog(LOG_ERR, "Pid error (%s)", strerror(errno));
-		pidfile = 0;
+		pidfile = NULL;
 		return 1;
 	}
 	pidfd = open(pidfile, O_CREAT | O_TRUNC | O_NOFOLLOW | O_WRONLY, 0644);
 	if (pidfd < 0) {
 		syslog(LOG_ERR, "Unable to set pidfile (%s)", strerror(errno));
-		pidfile = 0;
+		pidfile = NULL;
 		return 1;
 	}
 	if (write(pidfd, val, (unsigned int)len) != len) {
-		syslog(LOG_ERR, "Unable to write to pidfile (%s)", strerror(errno));
+		syslog(LOG_ERR, "Unable to write to pidfile (%s)",
+		       strerror(errno));
 		close(pidfd);
 		return 1;
 	}
@@ -115,7 +118,7 @@ static int write_pid_file(void)
 /*
  * SIGTERM handler
  */
-static void term_handler(int s __attribute__ ((unused)))
+static void term_handler(int s __attribute__((unused)))
 {
 	terminate = 1;
 	/* trigger a failure in the watch */
@@ -124,7 +127,8 @@ static void term_handler(int s __attribute__ ((unused)))
 
 static void usage(char *program)
 {
-	printf("%s [-d] [-f restorecond_file ] [-u] [-v] \n", program);
+	printf("%s [-d] [-f restorecond_file ] [-F] [-n] [-u] [-v] \n",
+	       program);
 }
 
 void exitApp(const char *msg)
@@ -150,10 +154,11 @@ int main(int argc, char **argv)
 
 	watch_file = server_watch_file;
 
-	/* Set all options to zero/NULL except for ignore_noent & digest. */
+	/* Set all options to zero/NULL except for ignore_noent, digest, and skip_multilink. */
 	memset(&r_opts, 0, sizeof(r_opts));
 	r_opts.ignore_noent = SELINUX_RESTORECON_IGNORE_NOENTRY;
 	r_opts.ignore_digest = SELINUX_RESTORECON_IGNORE_DIGEST;
+	r_opts.skip_multilink = SELINUX_RESTORECON_SKIP_MULTILINK;
 
 	/* As r_opts.selabel_opt_digest = NULL, no digest will be requested. */
 	restore_init(&r_opts);
@@ -164,14 +169,17 @@ int main(int argc, char **argv)
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGTERM, &sa, NULL);
 
-	atexit( done );
-	while ((opt = getopt(argc, argv, "hdf:uv")) > 0) {
+	atexit(done);
+	while ((opt = getopt(argc, argv, "hdf:Fuv")) > 0) {
 		switch (opt) {
 		case 'd':
 			debug_mode = 1;
 			break;
 		case 'f':
 			watch_file = optarg;
+			break;
+		case 'F':
+			foreground_mode = 1;
 			break;
 		case 'u':
 			run_as_user = 1;
@@ -198,7 +206,10 @@ int main(int argc, char **argv)
 	if (!pwd)
 		exitApp("getpwuid");
 
-	homedir = pwd->pw_dir;
+	homedir = strdup(pwd->pw_dir);
+	if (!homedir)
+		exitApp("strdup");
+
 	if (uid != 0) {
 		if (run_as_user)
 			return server(master_fd, user_watch_file);
@@ -209,12 +220,13 @@ int main(int argc, char **argv)
 
 	read_config(master_fd, watch_file);
 
-	if (!debug_mode) {
+	if (!debug_mode && !foreground_mode) {
 		if (daemon(0, 0) < 0)
 			exitApp("daemon");
+		write_pid_file();
+	} else {
+		pidfile = NULL;
 	}
-
-	write_pid_file();
 
 	while (watch(master_fd, watch_file) == 0) {
 	}
