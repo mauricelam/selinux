@@ -7,14 +7,17 @@
 #include <cil/cil.h>
 
 /* Forward declarations to satisfy -Wmissing-prototypes */
-int sepol_compile_cil_to_binary(const char *cil_data, size_t cil_size, char **out_data, size_t *out_size);
-int sepol_get_cil_ast(const char *cil_data, size_t cil_size, char **out_ast, size_t *out_size);
+int sepol_compile_cil_to_binary(const char *cil_data, size_t cil_size,
+				char **out_data, size_t *out_size);
+int sepol_get_cil_ast(const char *cil_data, size_t cil_size, char **out_ast,
+		      size_t *out_size);
 
 /* Emscripten's stdlib.h declares reallocarray but the library doesn't always
    provide it. We provide a non-static version here that matches the
    declaration in stdlib.h to avoid conflicts with the static inline
    definition in private.h. */
-void* reallocarray(void *ptr, size_t nmemb, size_t size) {
+void *reallocarray(void *ptr, size_t nmemb, size_t size)
+{
 	if (size && nmemb > (size_t)-1 / size) {
 		errno = ENOMEM;
 		return NULL;
@@ -22,7 +25,8 @@ void* reallocarray(void *ptr, size_t nmemb, size_t size) {
 	return realloc(ptr, nmemb * size);
 }
 
-static void wasm_cil_log_handler(int lvl, const char *msg) {
+static void wasm_cil_log_handler(int lvl, const char *msg)
+{
 	fprintf(stderr, "CIL [%d]: %s\n", lvl, msg);
 }
 
@@ -35,7 +39,9 @@ static void wasm_cil_log_handler(int lvl, const char *msg) {
  * @param out_size Pointer to receive the size of the binary policy.
  * @return 0 on success, -1 on failure.
  */
-int sepol_compile_cil_to_binary(const char *cil_data, size_t cil_size, char **out_data, size_t *out_size) {
+int sepol_compile_cil_to_binary(const char *cil_data, size_t cil_size,
+				char **out_data, size_t *out_size)
+{
 	cil_db_t *db = NULL;
 	sepol_policydb_t *pd = NULL;
 	int rc = -1;
@@ -90,7 +96,9 @@ exit:
  * @param out_size Pointer to receive the size of the AST string.
  * @return 0 on success, -1 on failure.
  */
-int sepol_get_cil_ast(const char *cil_data, size_t cil_size, char **out_ast, size_t *out_size) {
+int sepol_get_cil_ast(const char *cil_data, size_t cil_size, char **out_ast,
+		      size_t *out_size)
+{
 	cil_db_t *db = NULL;
 	int rc = -1;
 	FILE *mem_stream = NULL;
