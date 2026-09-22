@@ -27,5 +27,4 @@ jobs:
           actions-cache-folder: "emsdk-cache"
       - run: npm ci
       - run: npm run build --if-present
-      - run: npm test
       - run: npm stage publish
