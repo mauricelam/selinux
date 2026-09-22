@@ -19,6 +19,11 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false  # never use caching in release builds
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        with:
+          version: "4.0.22"
+          actions-cache-folder: "emsdk-cache"
       - run: npm ci
       - run: npm run build --if-present
       - run: npm test
