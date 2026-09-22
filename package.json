@@ -17,6 +17,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SELinuxProject/selinux.git"
+    "url": "https://github.com/mauricelam/selinux"
   }
 }
