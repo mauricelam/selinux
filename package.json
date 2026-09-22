@@ -5,6 +5,7 @@
   "main": "dist/libsepol_browser.js",
   "scripts": {
     "build": "make -C libsepol -f Makefile.wasm dist",
+    "test": "node --test",
     "prepublishOnly": "npm run build"
   },
   "author": "SELinux Project",
