@@ -1,8 +1,11 @@
 {
-  "name": "selinux-wasm",
+  "name": "@mauricelam/selinux-wasm",
   "version": "3.10.2",
   "description": "SELinux libsepol compiled to WebAssembly",
   "main": "dist/libsepol_browser.js",
+  "publishConfig": {
+    "access": "public"
+  }
   "scripts": {
     "build": "make -C libsepol -f Makefile.wasm dist",
     "prepublishOnly": "npm run build"
