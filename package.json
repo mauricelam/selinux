@@ -5,7 +5,7 @@
   "main": "dist/libsepol_browser.js",
   "publishConfig": {
     "access": "public"
-  }
+  },
   "scripts": {
     "build": "make -C libsepol -f Makefile.wasm dist",
     "prepublishOnly": "npm run build"
