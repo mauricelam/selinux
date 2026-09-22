@@ -1,6 +1,6 @@
 {
   "name": "@mauricelam/selinux-wasm",
-  "version": "3.10.2",
+  "version": "3.11.0",
   "description": "SELinux libsepol compiled to WebAssembly",
   "main": "dist/libsepol_browser.js",
   "publishConfig": {
